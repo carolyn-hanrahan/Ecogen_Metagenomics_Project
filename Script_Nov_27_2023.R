@@ -44,7 +44,7 @@ head(sixteen_s_data)
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Practice Code
 
-# converting excel file into a dataframe: 
+# converting ITS excel file into a dataframe: 
 
 its_df <- as.data.frame(its_data)
 head(its_df)
@@ -52,9 +52,13 @@ head(its_df)
 # subsetting dataframe to examine sample numbers and corresponding treatments:
 samples_and_treatment <- its_df[ ,1:2]
 
-#
+# converting 16S excel file into a dataframe: 
 
-merged_metagenomes <- import_biom(its_df)
+sixteen_s_df <- as.data.frame(sixteen_s_data)
+
+head(sixteen_s_df)
+
+
 
 
 

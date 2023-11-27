@@ -18,3 +18,6 @@
     -   WGCNA
     -   Functional gene analysis of specific/dominant taxa
         -   Piecrust package in R
+- Imported code into R and began working on manipulating the data and following a tutorial using the `phyloseq` library. Link to tutorial here: 
+
+https://vaulot.github.io/tutorials/Phyloseq_tutorial.html#step-by-step 
