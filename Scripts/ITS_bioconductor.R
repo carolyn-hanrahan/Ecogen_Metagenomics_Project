@@ -1,3 +1,4 @@
+
 setwd("C:/Users/Carolyn/Desktop/Ecogen Group Project/Ecogen_Metagenomics_Project/ITS_data") 
 
 library(tidyverse)
@@ -12,7 +13,7 @@ require(readxl)
 library(phyloseq)
 library(patchwork)
 devtools::install_github("jbisanz/qiime2R")
-library(qiime2R)
+#library(qiime2R)
 library(MicrobiotaProcess)
 library(BiocManager)
 BiocManager::version()
