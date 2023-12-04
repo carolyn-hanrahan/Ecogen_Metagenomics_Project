@@ -41,7 +41,12 @@ https://vaulot.github.io/tutorials/Phyloseq_tutorial.html#step-by-step
   - Cutoff of 180 to 10,000 
 - Preliminary results: sampling location on the plant was more influential of a factor than treatment type (fertilizer)
 - Next steps... 
+  - Alter rarefaction metrics 
   - Pick the most abundant taxa and examine at the genus level... or identify phylums of bacteria that are most interesting
-  - ANCOMBC package to look for statistical significance. This program will tell which taxa/ASVs are statistically different between the treatment groups 
+  - ANCOMBC package to look for statistical significance. This program will tell which taxa/ASVs are statistically different between the treatment groups [if time allows]
+  - Use Shannon's diversity rather than other diversity metric 
+  
+Meet to work on writeup tomorrow: 1:30 PM! 
+Wednesday: examine specific taxa 
 
 
