@@ -29,3 +29,19 @@ https://vaulot.github.io/tutorials/Phyloseq_tutorial.html#step-by-step
 - Copied code into new script titled: `Script_Nov_29_2023.R`
 
 - See `16S_bioconductor.R` file and `ITS_bioconductor.R` file. The corresponding excel sheets used for each respective analysis were: `16Sdata.xlsx` and `ITS_data.xlsx`. These files can be found in the data folders within the Ecogen_Metagenomics_Project. With this code, we successfully created some good bargraphs, heatmaps and plots of the various microbial taxa within our samples. 
+
+### Group Work Day #3: December 4th, 2023 
+
+- Added Maryam's R code `Shared_Meta16S.R` and `16Sdata.xlsx` file (which the R script is based off of)
+- Examined rarefaction parameters + cutoffs. Created a plot to determine the cutoff sample size whereby the values even out. 
+- Started with 90 samples and after rarefaction were left with 52 samples. 
+- Created diversity graphs and barplots 
+- Maintain statistical power and minimize bias 
+- Altering rarefaction parameters. 
+  - Cutoff of 180 to 10,000 
+- Preliminary results: sampling location on the plant was more influential of a factor than treatment type (fertilizer)
+- Next steps... 
+  - Pick the most abundant taxa and examine at the genus level... or identify phylums of bacteria that are most interesting
+  - ANCOMBC package to look for statistical significance. This program will tell which taxa/ASVs are statistically different between the treatment groups 
+
+
