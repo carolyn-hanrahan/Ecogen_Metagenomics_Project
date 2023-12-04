@@ -1,6 +1,5 @@
 setwd("/Users/maryamnouri-aiin/Desktop/CompostMetagenomics/16S/")
 
-
 #Required packages
 require(readxl)
 library(openxlsx)
@@ -22,8 +21,6 @@ library(BiocManager)
 library(vegan)
 library("ape")
 library("DESeq2")
-
-
 ####################################Rarefaction and normalisation####################################
 #Rawdata
 data <- read.xlsx("16S_1.xlsx", sheet = 1, colNames = TRUE, rowNames = TRUE)
@@ -94,21 +91,22 @@ physeqtax
 
 
 ###Create violin plot of alpha diversity
-alphadiversity <- physeqtax %>%                                                              
+alphadiversity_treatment_sampletype <- physeqtax %>%                                                            
   plot_richness(
-    x = "Treatment",                                                
-    measures = c("Shannon", "Simpson")) +                           
-  geom_violin(aes(fill = Treatment), show.legend = FALSE) +          
-  geom_boxplot(width=0.1) +                                          
+    x = "Treatment",
+    measures = c("Shannon")) +                      
+  geom_violin(aes(fill = Treatment), show.legend = TRUE) +         
+  geom_boxplot(width=0.1) +  
+  facet_grid(PlantType~SampleType) +                               
   theme_classic()+                                                   
-  xlab(NULL)+                                                        
-  theme(axis.text.y.left = element_text(size = 15),                  
+  xlab(NULL)+                                                       
+  theme(axis.text.y.left = element_text(size = 15),                 
         axis.text.x = element_text(size = 15, hjust = 0.5, vjust = 1, angle = 0),           
         axis.title.y = element_text(size = 15))+                     
   theme(strip.text = element_text(face = "bold", size = 20))+        
   scale_fill_manual(values=c("lightgoldenrod","darkorange", "darkred"))+   
-  ggtitle("Alpha Diversity (Bacteria)") +                                       
-  theme(plot.title=element_text(size = 20, face = "bold", hjust = 0.5)) 
+  ggtitle("") +                                        #add title
+  theme(plot.title=element_text(size = 20, face = "bold", hjust = 0.5))
 
 #Making a PCoA plot
 
@@ -119,36 +117,25 @@ all_pcoa <- ordinate(
 )
 #Plot
 pca <- plot_ordination(
-  physeq = physeqtax,                                                        
-  ordination = all_pcoa)+                                               
-  geom_point(aes(fill = Treatment, shape = SampleType), size = 3) +     
-  scale_shape_manual(values = c(21, 22, 23))+
-  scale_fill_manual(values=c("lightgoldenrod","darkorange", "darkred")) +
-  theme_classic() +                                                     
-  theme(                             
-    legend.text = element_text(size = 20),                             
-    legend.title = element_blank())+                                  
-  theme(axis.text.y.left = element_text(size = 15),
-        axis.text.x = element_text(size = 15),
-        axis.title.x = element_text(size = 15),
-        axis.title.y = element_text(size = 15))+
-  guides(fill = guide_legend(override.aes = list(shape = 21)))        
+  physeq = physeqtax,
+  ordination = all_pcoa) +
+  geom_point(aes(fill = Treatment, shape = SampleType, color = PlantType), size = 25) +  
+  scale_shape_manual(values = c(21, 22, 23)) +
+  scale_fill_manual(values = c("lightgoldenrod", "darkorange", "darkred")) +
+  scale_color_manual(values = c("green", "red")) +  
+  scale_size_manual(values = c(3, 4, 5)) +  
+  theme_classic() +
+  theme(
+    legend.text = element_text(size = 20),
+    legend.title = element_blank(),
+    axis.text.y.left = element_text(size = 15),
+    axis.text.x = element_text(size = 15),
+    axis.title.x = element_text(size = 15),
+    axis.title.y = element_text(size = 15)
+  ) +
+  guides(fill = guide_legend(override.aes = list(shape = 21))) +
+  theme(legend.key.size = unit(2, "lines"))     
 
-#NMDS
-nmds<- ordinate(physeqtax, "NMDS", "bray")
-nmds_plot = plot_ordination(physeqtax, nmds, type="taxa", color="Phylum", title="taxa")+
-  scale_shape_manual(values = c(21, 22, 23))+
-  scale_fill_manual(values=c("lightgoldenrod","darkorange", "darkred")) + 
-  theme(                             
-    legend.text = element_text(size = 15),                       
-    legend.title = element_blank())+                   
-  theme(axis.text.y.left = element_text(size = 15),
-        axis.text.x = element_text(size = 15),
-        axis.title.x = element_text(size = 15),
-        axis.title.y = element_text(size = 15))+
-  guides(fill = guide_legend(override.aes = list(shape = 22)))     
-print(nmds_plot)
-all_nmds <- nmds_plot + facet_wrap(~Phylum, 4)
 
 #Filter out eukaryotes and mitochondria
 justbacteria <- physeqtax %>%
@@ -167,8 +154,8 @@ head(phylumabundance)
 
 #Summarize the most abundant taxa, filter to only include taxa with > 1% abundance
 avg.abundance <- phylumabundance %>%
-  select(Phylum, Treatment, Abundance, SampleType) %>%
-  group_by(Phylum, Treatment, SampleType) %>%
+  select(Phylum, Treatment, Abundance, PlantType, SampleType) %>%
+  group_by(Phylum, Treatment, PlantType, SampleType) %>%
   summarize(
     avg_abundance = mean(Abundance), .groups = 'drop'
   ) %>%
@@ -182,168 +169,85 @@ phylum_colors <- c(
   "#5F7FC7", "orange","#DA5724", "#508578",
   "#AD6F3B", "#673770", "#652926", "#C84248",  "#D1A33D"
 )
+#heatmap
+heatmap <- ggplot(avg.abundance, aes(x = Treatment, y = Phylum, fill = avg_abundance)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient(low = "lightgoldenrod", high = "darkred") +
+  facet_grid(PlantType ~ SampleType) +  # Add facets for PlantType and SampleType
+  theme_minimal() +
+  labs(title = "Average Abundance of Phyla",
+       x = "Treatment",
+       y = "Phylum",
+       fill = "Average Abundance")
 # Create a factor for SampleType to control the display of x-axis labels
 avg.abundance$SampleType <- factor(avg.abundance$SampleType, levels = unique(avg.abundance$SampleType))
+avg.abundance$PlantType <- factor(avg.abundance$PlantType, levels = unique(avg.abundance$PlantType))
 
 phylum_avgabundance_sampletype <- ggplot(avg.abundance, aes(x = Treatment, y = avg_abundance, fill = Phylum)) +
   geom_col(position = "fill", show.legend = TRUE) +
   ylab("Proportion of Community") +
   scale_fill_manual(values = phylum_colors) +
   xlab(NULL) +
-  facet_wrap(~SampleType, ncol = 1) + 
-  theme(strip.text.x = element_blank())+
+  facet_grid(PlantType ~ SampleType) +   
+  theme(strip.text.x = element_blank()) +
   theme(
     strip.background = element_blank(),
-    strip.text = element_blank(),
+    strip.text = element_text(size = 10),
     axis.text.y = element_text(size = 10),
     axis.text.x = element_text(size = 10, angle = 0, vjust = 0.5, hjust = 1),
     axis.title.y = element_text(size = 10),
-    strip.text.x = element_text(size = 10), 
-    strip.placement = "outside",  
+    strip.text.x = element_text(size = 10),  # Adjust facet label size
+    strip.placement = "outside",  # Place the facet labels outside the plot area
     title = element_text(size = 10)
-  )
+  ) +
+  labs(x = "Treatment", subtitle = "")  # Adding a subtitle for PlantType
+
+phylum_avgabundance_sampletype
 
 #Calcultae proportion of each phyla
 phylumabundance <- as.data.frame(phylumabundance)
-genus_colors <- c(
-  "#5F7FC7", "orange","#DA5724", "#508578",
-  "#AD6F3B", "#673770", "#652926", "#C84248",  "#D1A33D")
-
-#proportion of the community "Acidobacteriota"
+phylumabundance$SampleType <- factor(phylumabundance$SampleType, levels = unique(phylumabundance$SampleType))
+phylumabundance$PlantType <- factor(phylumabundance$PlantType, levels = unique(phylumabundance$PlantType))
+#e.g. proportion of the community "Acidobacteriota"
 Acidobacteriota <- subset(phylumabundance, Phylum =="Acidobacteriota")
 Acidobacteriota_avgabundance <- ggplot(Acidobacteriota) +
   geom_col(mapping = aes(x = Treatment, y = Abundance, fill = Genus), position = "fill", show.legend = TRUE) +
   ylab("Proportion of Community") +
-  scale_fill_manual(values = genus_colors) +
+  scale_fill_manual(values = phylum_colors) +
   xlab(NULL) +
-  ggtitle("Acidobacteriota") +  # Add the title here
-  theme_minimal() +
-  theme(axis.text.y.left = element_text(size = 20),
-        axis.text.x = element_text(size = 20, angle = 90, vjust = 0.5, hjust = 1),
-        axis.title.y = element_text(size = 20),
-        plot.title = element_text(size = 25, hjust = 0.5, margin = margin(b = 20))) +  
-  facet_wrap(~ SampleType, ncol = 1)
+  facet_grid(PlantType ~ SampleType) +   
+  theme(strip.text.x = element_blank()) +
+  theme(
+    strip.background = element_blank(),
+    strip.text = element_text(size = 10),
+    axis.text.y = element_text(size = 10),
+    axis.text.x = element_text(size = 10, angle = 0, vjust = 0.5, hjust = 1),
+    axis.title.y = element_text(size = 10),
+    strip.text.x = element_text(size = 10),  # Adjust facet label size
+    strip.placement = "outside",  # Place the facet labels outside the plot area
+    title = element_text(size = 10)
+  ) +
+  labs(x = "Treatment", subtitle = "")  # Adding a subtitle for PlantType
+
 
 print(Acidobacteriota_avgabundance)
-
-#proportion of the community "Actinobacteriota"
-Actinobacteriota <- subset(phylumabundance, Phylum =="Actinobacteriota")
-Actinobacteriota_avgabundance <- ggplot(Actinobacteriota) +
-  geom_col(mapping = aes(x = Treatment, y = Abundance, fill = Genus), position = "fill", show.legend = TRUE) +
-  ylab("Proportion of Community") +
-  scale_fill_manual(values = genus_colors) +
-  xlab(NULL) +
-  ggtitle("Actinobacteriota") +  # Add the title here
-  theme_minimal() +
-  theme(axis.text.y.left = element_text(size = 20),
-        axis.text.x = element_text(size = 20, angle = 90, vjust = 0.5, hjust = 1),
-        axis.title.y = element_text(size = 20),
-        plot.title = element_text(size = 25, hjust = 0.5, margin = margin(b = 20))) +  
-  facet_wrap(~ SampleType, ncol = 1)
-
-print(Actinobacteriota_avgabundance)
-
-#proportion of the community "Bacteroidota"
-bacteroidota <- subset(phylumabundance, Phylum =="Bacteroidota")
-bacteroidota_avgabundance <- ggplot(bacteroidota) +
-  geom_col(mapping = aes(x = Treatment, y = Abundance, fill = Genus), position = "fill", show.legend = TRUE) +
-  ylab("Proportion of Community") +
-  scale_fill_manual(values = genus_colors) +
-  xlab(NULL) +
-  ggtitle("Bacteroidota") +  # Add the title here
-  theme_minimal() +
-  theme(axis.text.y.left = element_text(size = 20),
-        axis.text.x = element_text(size = 20, angle = 90, vjust = 0.5, hjust = 1),
-        axis.title.y = element_text(size = 20),
-        plot.title = element_text(size = 25, hjust = 0.5, margin = margin(b = 20))) +  
-  facet_wrap(~ SampleType, ncol = 1)
-
-print(bacteroidota_avgabundance)
-#proportion of the community "Chloroflexi" 
-Chloroflexi <- subset(phylumabundance, Phylum =="Chloroflexi")
-Chloroflexi_avgabundance <- ggplot(Chloroflexi) +
-  geom_col(mapping = aes(x = Treatment, y = Abundance, fill = Genus), position = "fill", show.legend = TRUE) +
-  ylab("Proportion of Community") +
-  scale_fill_manual(values = genus_colors) +
-  xlab(NULL) +
-  ggtitle("Chloroflexi") +  # Add the title here
-  theme_minimal() +
-  theme(axis.text.y.left = element_text(size = 20),
-        axis.text.x = element_text(size = 20, angle = 90, vjust = 0.5, hjust = 1),
-        axis.title.y = element_text(size = 20),
-        plot.title = element_text(size = 25, hjust = 0.5, margin = margin(b = 20))) +  
-  facet_wrap(~ SampleType, ncol = 1)
-
-print(Chloroflexi_avgabundance)
-
-#proportion of the community "Gemmatimonadota"
-Gemmatimonadota <- subset(phylumabundance, Phylum =="Gemmatimonadota")
-Gemmatimonadota_avgabundance <- ggplot(Gemmatimonadota) +
-  geom_col(mapping = aes(x = Treatment, y = Abundance, fill = Genus), position = "fill", show.legend = TRUE) +
-  ylab("Proportion of Community") +
-  scale_fill_manual(values = genus_colors) +
-  xlab(NULL) +
-  ggtitle("Gemmatimonadota") +  # Add the title here
-  theme_minimal() +
-  theme(axis.text.y.left = element_text(size = 20),
-        axis.text.x = element_text(size = 20, angle = 90, vjust = 0.5, hjust = 1),
-        axis.title.y = element_text(size = 20),
-        plot.title = element_text(size = 25, hjust = 0.5, margin = margin(b = 20))) + 
-  facet_wrap(~ SampleType, ncol = 1)
-
-print(Gemmatimonadota_avgabundance)
-
-#proportion of the community "Planctomycetota"
-Planctomycetota <- subset(phylumabundance, Phylum =="Planctomycetota")
-Planctomycetota_avgabundance <- ggplot(Planctomycetota) +
-  geom_col(mapping = aes(x = Treatment, y = Abundance, fill = Genus), position = "fill", show.legend = TRUE) +
-  ylab("Proportion of Community") +
-  scale_fill_manual(values = genus_colors) +
-  xlab(NULL) +
-  ggtitle("Planctomycetota") +  # Add the title here
-  theme_minimal() +
-  theme(axis.text.y.left = element_text(size = 20),
-        axis.text.x = element_text(size = 20, angle = 90, vjust = 0.5, hjust = 1),
-        axis.title.y = element_text(size = 20),
-        plot.title = element_text(size = 25, hjust = 0.5, margin = margin(b = 20))) +  
-  facet_wrap(~ SampleType, ncol = 1)
-print(Planctomycetota_avgabundance)
-
-#proportion of the community "Verrucomicrobiota"
-Verrucomicrobiota <- subset(phylumabundance, Phylum =="Verrucomicrobiota")
-Verrucomicrobiota_avgabundance <- ggplot(Verrucomicrobiota) +
-  geom_col(mapping = aes(x = Treatment, y = Abundance, fill = Genus), position = "fill", show.legend = TRUE) +
-  ylab("Proportion of Community") +
-  scale_fill_manual(values = genus_colors) +
-  xlab(NULL) +
-  ggtitle("Verrucomicrobiota") +  # Add the title here
-  theme_minimal() +
-  theme(axis.text.y.left = element_text(size = 20),
-        axis.text.x = element_text(size = 20, angle = 90, vjust = 0.5, hjust = 1),
-        axis.title.y = element_text(size = 20),
-        plot.title = element_text(size = 25, hjust = 0.5, margin = margin(b = 20))) + 
-  facet_wrap(~ SampleType, ncol = 1)
-
-print(Verrucomicrobiota_avgabundance)
 
 #heatmap
 #Phyla
 s <- plot_heatmap(physeqtax,  method = "NMDS", distance = "bray", 
-                  taxa.label = "Phylum", taxa.order = "Phylum", 
-                  low="darkblue", high="red", na.value="white")+ 
-  theme(axis.text.y.left = element_text(size = 5),
-        axis.text.x = element_text(size = 12, angle = 90, vjust = 0.5, hjust = 1),
-        axis.title.y = element_text(size = 5),
-        plot.title = element_text(size = 25, hjust = 0.5, margin = margin(b = 20)))
-
+             taxa.label = "Phylum", taxa.order = "Phylum", 
+             low="lightgoldenrod", high="darkred", na.value="white")
 s 
 #Heatmap for a subset of samples
-new_palette <- colorRampPalette(c("darkblue", "white", "red"))
+new_palette <- colorRampPalette(c("lightgoldenrod", "white", "darkred"))
 
-plot_taxa_heatmap(physeqtax, subset.top = 50,
-                                   VariableA = "Treatment",
-                                   heatcolors = new_palette(100),
-                                   transformation = "log10")
+
+heatmap_top50 <- plot_taxa_heatmap(physeqtax,
+                                 subset.top = 50,
+                                 VariableA = "Treatment",
+                                 heatcolors = new_palette(100),
+                                 transformation = "log10")
+heatmap_top50
 
 
 
