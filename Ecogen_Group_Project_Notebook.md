@@ -49,4 +49,13 @@ https://vaulot.github.io/tutorials/Phyloseq_tutorial.html#step-by-step
 Meet to work on writeup tomorrow: 1:30 PM! 
 Wednesday: examine specific taxa 
 
+### Group Work Day #4: December 6th, 2023 
+
+- We met yesterday to go over plots and establish our analyses. 
+- Today, we have been synthesizing our results and formulating our presentation: `Final Metagenomics Project`
+- Researched phylums of importance in our results (proteobacteria, etc.)
+- Divided presentation
+- Calculated p-values and relevant statistics 
+
+
 
