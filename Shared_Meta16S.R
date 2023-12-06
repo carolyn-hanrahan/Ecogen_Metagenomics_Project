@@ -1,15 +1,18 @@
 setwd("/Users/maryamnouri-aiin/Desktop/CompostMetagenomics/16S/")
 
-#Required packages
+library(ANCOMBC)
+library(fastANCOM)
 require(readxl)
 library(openxlsx)
 library(tidyverse)
 library(dplyr)
+library(nloptr)
 library(ggplot2)
 library(gridExtra)
 library(wesanderson)
 library(RColorBrewer)
 library("viridis")  
+library(readr)
 library(scales)
 library(igraph)
 library(ggridges)
@@ -21,14 +24,21 @@ library(BiocManager)
 library(vegan)
 library("ape")
 library("DESeq2")
+library(adaptiveGPCA)
+library(phyloseqGraphTest)
+library(igraph)
+library(ggnetwork)
+library("tximeta")
+library("tximportData")
+
 ####################################Rarefaction and normalisation####################################
 #Rawdata
 data <- read.xlsx("16S_1.xlsx", sheet = 1, colNames = TRUE, rowNames = TRUE)
 # Exclude the specified column "taxonomy
 column_to_exclude <- c("taxonomy")
 data <- data[, !colnames(data) %in% column_to_exclude]
-data <- data[rowSums(data)>600,]
-data <- data[,colSums(data)>19000]
+data <- data[rowSums(data)>180,]
+data <- data[,colSums(data)>10000]
 OTU <- specnumber(t(data))
 # Determine the rarefaction level
 raremax <- min(colSums(data))
@@ -36,6 +46,7 @@ raremax <- min(colSums(data))
 ACrare <- rarefy(t(data), raremax)
 #Plot rarified data
 plot(OTU, ACrare, xlab = "Observed No. of Species", ylab = "Rarefied No. of Species")
+
 # Customize the rarefaction curve
 AC_Curve <- rarecurve(t(data), step = 20, sample = raremax, col = "blue", cex = 0.6)
 # Perform relative rarefaction
@@ -69,14 +80,23 @@ samples = sample_data(samples_df)
 physeq0 <- phyloseq(OTU, TAX)
 physeq <- phyloseq(OTU, TAX, samples)
 physeq
-
+unique(taxmat$Phylum)
 #Rarefy_even_depth: Resample an OTU table such that all samples have the same
-ps.rarefied = rarefy_even_depth(physeq, rngseed=1, 
+ps.rarified = rarefy_even_depth(physeq, rngseed=1, 
                                 sample.size=0.5*min(sample_sums(physeq)), replace=F)
-
+ps.rarified
+#Normalize number of reads in each sample using median seq depth
+total = median(sample_sums(ps.rarified))
+standf = function(x, t=total) round(t * (x / sum(x)))
+ps.rarified = transform_sample_counts(ps.rarified, standf)
+#OTU's that represent at least 0.01 % of the reads in one sample
+ps.rarified <- filter_taxa(ps.rarified, function(x) sum(x > total*0.01) > 0, TRUE)
+ps.rarified
 #Keep only specific phylum
-physeqtax <- subset_taxa(ps.rarefied, Phylum %in% c("Acidobacteriota", "Actinobacteriota", "Bacteroidota", 
-                                                    "Chloroflexi", "Gemmatimonadota", "Planctomycetota", "Verrucomicrobiota"))
+physeqtax <- subset_taxa(ps.rarified, Phylum %in% c("Acidobacteriota", "Actinobacteriota", "Bacteroidota", 
+                                                    "Chloroflexi", "Gemmatimonadota", "Planctomycetota", 
+                                                    "Verrucomicrobiota", "Proteobacteria", "Nitrospirota", 
+                                                    "Firmicutes", "Cynobacteria"))
 #Exclude classes
 physeqtax <- subset_taxa(physeqtax, !(Class %in% c("BD7-11", "FFCH5909")))
 # Exclude NA values for Genus and Species
@@ -97,9 +117,10 @@ alphadiversity_treatment_sampletype <- physeqtax %>%
     measures = c("Shannon")) +                      
   geom_violin(aes(fill = Treatment), show.legend = TRUE) +         
   geom_boxplot(width=0.1) +  
-  facet_grid(PlantType~SampleType) +                               
-  theme_classic()+                                                   
-  xlab(NULL)+                                                       
+  facet_grid(PlantType~SampleType, ) +                               
+  theme_light()+                                                   
+  xlab(NULL)+ 
+  
   theme(axis.text.y.left = element_text(size = 15),                 
         axis.text.x = element_text(size = 15, hjust = 0.5, vjust = 1, angle = 0),           
         axis.title.y = element_text(size = 15))+                     
@@ -107,6 +128,7 @@ alphadiversity_treatment_sampletype <- physeqtax %>%
   scale_fill_manual(values=c("lightgoldenrod","darkorange", "darkred"))+   
   ggtitle("") +                                        #add title
   theme(plot.title=element_text(size = 20, face = "bold", hjust = 0.5))
+alphadiversity_treatment_sampletype
 
 #Making a PCoA plot
 
@@ -116,13 +138,13 @@ all_pcoa <- ordinate(
   distance = "jaccard"
 )
 #Plot
-pca <- plot_ordination(
+pca_sampletype <- plot_ordination(
   physeq = physeqtax,
   ordination = all_pcoa) +
-  geom_point(aes(fill = Treatment, shape = SampleType, color = PlantType), size = 25) +  
+  geom_point(aes(fill = Treatment, shape = SampleType, color = PlantType), size = 15, stroke=4, alpha =1) +  
   scale_shape_manual(values = c(21, 22, 23)) +
-  scale_fill_manual(values = c("lightgoldenrod", "darkorange", "darkred")) +
-  scale_color_manual(values = c("green", "red")) +  
+  scale_fill_manual(values = c("lightgoldenrod", "darkorange", "#CC3333")) +
+  scale_color_manual(values = c("#673770","#5F7FC7","darkseagreen")) +  
   scale_size_manual(values = c(3, 4, 5)) +  
   theme_classic() +
   theme(
@@ -134,8 +156,87 @@ pca <- plot_ordination(
     axis.title.y = element_text(size = 15)
   ) +
   guides(fill = guide_legend(override.aes = list(shape = 21))) +
-  theme(legend.key.size = unit(2, "lines"))     
+  theme(legend.key.size = unit(2, "lines"))
+pca_sampletype
 
+pca_planttype <- plot_ordination(
+  physeq = physeqtax,
+  ordination = all_pcoa) +
+  geom_point(aes(fill = Treatment, shape = PlantType, color=SampleType), size = 15, stroke=4, alpha =1) +  
+  scale_shape_manual(values = c(21, 22, 23)) +
+  scale_fill_manual(values = c("lightgoldenrod", "darkorange", "#CC3333")) +
+  scale_color_manual(values = c("#673770","#5F7FC7","darkseagreen")) +  
+  scale_size_manual(values = c(3, 4, 5)) +  
+  theme_classic() +
+  theme(
+    legend.text = element_text(size = 20),
+    legend.title = element_blank(),
+    axis.text.y.left = element_text(size = 15),
+    axis.text.x = element_text(size = 15),
+    axis.title.x = element_text(size = 15),
+    axis.title.y = element_text(size = 15)
+  ) +
+  guides(fill = guide_legend(override.aes = list(shape = 21))) +
+  theme(legend.key.size = unit(2, "lines"))
+pca_planttype
+
+pca_treatment <- plot_ordination(
+  physeq = physeqtax,
+  ordination = all_pcoa
+) +
+  geom_point(aes(color = Treatment), size = 15) + 
+  scale_color_manual(values = c("lightgoldenrod", "darkorange", "#CC3333")) +
+  theme_classic() +
+  theme(
+    legend.text = element_text(size = 20),
+    legend.title = element_blank(),
+    axis.text.y.left = element_text(size = 15),
+    axis.text.x = element_text(size = 15),
+    axis.title.x = element_text(size = 15),
+    axis.title.y = element_text(size = 15)
+  ) +
+  theme(legend.key.size = unit(2, "lines"))
+
+pca_treatment
+
+
+pca_SampleType <- plot_ordination(
+  physeq = physeqtax,
+  ordination = all_pcoa
+) +
+  geom_point(aes(color = SampleType), size = 15) + 
+  scale_color_manual(values = c("lightgoldenrod", "darkorange", "#CC3333")) +
+  theme_classic() +
+  theme(
+    legend.text = element_text(size = 20),
+    legend.title = element_blank(),
+    axis.text.y.left = element_text(size = 15),
+    axis.text.x = element_text(size = 15),
+    axis.title.x = element_text(size = 15),
+    axis.title.y = element_text(size = 15)
+  ) +
+  theme(legend.key.size = unit(2, "lines"))
+
+pca_SampleType
+
+pca_PlantType <- plot_ordination(
+  physeq = physeqtax,
+  ordination = all_pcoa
+) +
+  geom_point(aes(color = PlantType), size = 15) + 
+  scale_color_manual(values = c("lightgoldenrod", "darkorange", "#CC3333")) +
+  theme_classic() +
+  theme(
+    legend.text = element_text(size = 20),
+    legend.title = element_blank(),
+    axis.text.y.left = element_text(size = 15),
+    axis.text.x = element_text(size = 15),
+    axis.title.x = element_text(size = 15),
+    axis.title.y = element_text(size = 15)
+  ) +
+  theme(legend.key.size = unit(2, "lines"))
+
+pca_PlantType
 
 #Filter out eukaryotes and mitochondria
 justbacteria <- physeqtax %>%
@@ -169,16 +270,7 @@ phylum_colors <- c(
   "#5F7FC7", "orange","#DA5724", "#508578",
   "#AD6F3B", "#673770", "#652926", "#C84248",  "#D1A33D"
 )
-#heatmap
-heatmap <- ggplot(avg.abundance, aes(x = Treatment, y = Phylum, fill = avg_abundance)) +
-  geom_tile(color = "white") +
-  scale_fill_gradient(low = "lightgoldenrod", high = "darkred") +
-  facet_grid(PlantType ~ SampleType) +  # Add facets for PlantType and SampleType
-  theme_minimal() +
-  labs(title = "Average Abundance of Phyla",
-       x = "Treatment",
-       y = "Phylum",
-       fill = "Average Abundance")
+
 # Create a factor for SampleType to control the display of x-axis labels
 avg.abundance$SampleType <- factor(avg.abundance$SampleType, levels = unique(avg.abundance$SampleType))
 avg.abundance$PlantType <- factor(avg.abundance$PlantType, levels = unique(avg.abundance$PlantType))
@@ -204,10 +296,17 @@ phylum_avgabundance_sampletype <- ggplot(avg.abundance, aes(x = Treatment, y = a
 
 phylum_avgabundance_sampletype
 
+genus_colors <- c(
+  "#5F7FC7", "orange","#DA5724", "#508578",
+  "#AD6F3B", "#673770", "#652926", "#C84248",  "#D1A33D", 
+  "darkolivegreen", "bisque", "cadetblue", "cyan1", "coral", 
+  "darkgoldenrod", "darkorange", "darkseagreen", "salmon3", "plum3", 
+  "indianred", "honeydew", "pink3", "mediumpurple1", "sienna1")
 #Calcultae proportion of each phyla
 phylumabundance <- as.data.frame(phylumabundance)
 phylumabundance$SampleType <- factor(phylumabundance$SampleType, levels = unique(phylumabundance$SampleType))
 phylumabundance$PlantType <- factor(phylumabundance$PlantType, levels = unique(phylumabundance$PlantType))
+
 #e.g. proportion of the community "Acidobacteriota"
 Acidobacteriota <- subset(phylumabundance, Phylum =="Acidobacteriota")
 Acidobacteriota_avgabundance <- ggplot(Acidobacteriota) +
@@ -232,23 +331,139 @@ Acidobacteriota_avgabundance <- ggplot(Acidobacteriota) +
 
 print(Acidobacteriota_avgabundance)
 
-#heatmap
-#Phyla
-s <- plot_heatmap(physeqtax,  method = "NMDS", distance = "bray", 
-             taxa.label = "Phylum", taxa.order = "Phylum", 
-             low="lightgoldenrod", high="darkred", na.value="white")
-s 
-#Heatmap for a subset of samples
-new_palette <- colorRampPalette(c("lightgoldenrod", "white", "darkred"))
+#proportion of the community "Actinobacteriota"
+Actinobacteriota <- subset(phylumabundance, Phylum =="Actinobacteriota")
+Actinobacteriota_avgabundance <- ggplot(Actinobacteriota) +
+  geom_col(mapping = aes(x = Treatment, y = Abundance, fill = Genus), position = "fill", show.legend = TRUE) +
+  ylab("Proportion of Community") +
+  scale_fill_manual(values = genus_colors) +
+  xlab(NULL) +
+  ggtitle("Actinobacteriota") +  # Add the title here
+  theme_minimal() +
+  theme(axis.text.y.left = element_text(size = 20),
+        axis.text.x = element_text(size = 20, angle = 90, vjust = 0.5, hjust = 1),
+        axis.title.y = element_text(size = 20),
+        plot.title = element_text(size = 25, hjust = 0.5, margin = margin(b = 20))) +  # Position the title at the top and in the middle
+  facet_grid(PlantType ~ SampleType) 
+print(Actinobacteriota_avgabundance)
+
+#proportion of the community "Firmicutes"
+firmicutes <- subset(phylumabundance, Phylum =="Firmicutes")
+firmicutes_avgabundance <- ggplot(firmicutes) +
+  geom_col(mapping = aes(x = Treatment, y = Abundance, fill = Genus), position = "fill", show.legend = TRUE) +
+  ylab("Proportion of Community") +
+  scale_fill_manual(values = genus_colors) +
+  xlab(NULL) +
+  ggtitle("Firmicutes") +  # Add the title here
+  theme_minimal() +
+  theme(axis.text.y.left = element_text(size = 20),
+        axis.text.x = element_text(size = 20, angle = 90, vjust = 0.5, hjust = 1),
+        axis.title.y = element_text(size = 20),
+        plot.title = element_text(size = 25, hjust = 0.5, margin = margin(b = 20))) +  # Position the title at the top and in the middle
+  facet_grid(PlantType ~ SampleType) 
+
+print(firmicutes_avgabundance)
 
 
-heatmap_top50 <- plot_taxa_heatmap(physeqtax,
-                                 subset.top = 50,
-                                 VariableA = "Treatment",
-                                 heatcolors = new_palette(100),
-                                 transformation = "log10")
-heatmap_top50
 
+#proportion of the community "Bacteroidota"
+bacteroidota <- subset(phylumabundance, Phylum =="Bacteroidota")
+bacteroidota_avgabundance <- ggplot(bacteroidota) +
+  geom_col(mapping = aes(x = Treatment, y = Abundance, fill = Genus), position = "fill", show.legend = TRUE) +
+  ylab("Proportion of Community") +
+  scale_fill_manual(values = genus_colors) +
+  xlab(NULL) +
+  ggtitle("Bacteroidota") +  # Add the title here
+  theme_minimal() +
+  theme(axis.text.y.left = element_text(size = 20),
+        axis.text.x = element_text(size = 20, angle = 90, vjust = 0.5, hjust = 1),
+        axis.title.y = element_text(size = 20),
+        plot.title = element_text(size = 25, hjust = 0.5, margin = margin(b = 20))) +  # Position the title at the top and in the middle
+  facet_grid(PlantType ~ SampleType) 
 
+print(bacteroidota_avgabundance)
+#proportion of the community "Chloroflexi" 
+Chloroflexi <- subset(phylumabundance, Phylum =="Chloroflexi")
+Chloroflexi_avgabundance <- ggplot(Chloroflexi) +
+  geom_col(mapping = aes(x = Treatment, y = Abundance, fill = Genus), position = "fill", show.legend = TRUE) +
+  ylab("Proportion of Community") +
+  scale_fill_manual(values = genus_colors) +
+  xlab(NULL) +
+  ggtitle("Chloroflexi") +  # Add the title here
+  theme_minimal() +
+  theme(axis.text.y.left = element_text(size = 20),
+        axis.text.x = element_text(size = 20, angle = 90, vjust = 0.5, hjust = 1),
+        axis.title.y = element_text(size = 20),
+        plot.title = element_text(size = 25, hjust = 0.5, margin = margin(b = 20))) +  # Position the title at the top and in the middle
+  facet_grid(PlantType ~ SampleType) 
 
+print(Chloroflexi_avgabundance)
+
+#proportion of the community "Gemmatimonadota"
+Gemmatimonadota <- subset(phylumabundance, Phylum =="Gemmatimonadota")
+Gemmatimonadota_avgabundance <- ggplot(Gemmatimonadota) +
+  geom_col(mapping = aes(x = Treatment, y = Abundance, fill = Genus), position = "fill", show.legend = TRUE) +
+  ylab("Proportion of Community") +
+  scale_fill_manual(values = genus_colors) +
+  xlab(NULL) +
+  ggtitle("Gemmatimonadota") +  # Add the title here
+  theme_minimal() +
+  theme(axis.text.y.left = element_text(size = 20),
+        axis.text.x = element_text(size = 20, angle = 90, vjust = 0.5, hjust = 1),
+        axis.title.y = element_text(size = 20),
+        plot.title = element_text(size = 25, hjust = 0.5, margin = margin(b = 20))) +  # Position the title at the top and in the middle
+  facet_grid(PlantType ~ SampleType) 
+
+print(Gemmatimonadota_avgabundance)
+
+#proportion of the community "Planctomycetota"
+Planctomycetota <- subset(phylumabundance, Phylum =="Planctomycetota")
+Planctomycetota_avgabundance <- ggplot(Planctomycetota) +
+  geom_col(mapping = aes(x = Treatment, y = Abundance, fill = Genus), position = "fill", show.legend = TRUE) +
+  ylab("Proportion of Community") +
+  scale_fill_manual(values = genus_colors) +
+  xlab(NULL) +
+  ggtitle("Planctomycetota") +  # Add the title here
+  theme_minimal() +
+  theme(axis.text.y.left = element_text(size = 20),
+        axis.text.x = element_text(size = 20, angle = 90, vjust = 0.5, hjust = 1),
+        axis.title.y = element_text(size = 20),
+        plot.title = element_text(size = 25, hjust = 0.5, margin = margin(b = 20))) +  # Position the title at the top and in the middle
+  facet_grid(PlantType ~ SampleType) 
+
+print(Planctomycetota_avgabundance)
+
+#proportion of the community "proteobacteria"
+proteobacteria <- subset(phylumabundance, Phylum =="Proteobacteria")
+proteobacteria_avgabundance <- ggplot(proteobacteria) +
+  geom_col(mapping = aes(x = Treatment, y = Abundance, fill = Genus), position = "fill", show.legend = TRUE) +
+  ylab("Proportion of Community") +
+  scale_fill_manual(values = genus_colors) +
+  xlab(NULL) +
+  ggtitle("proteobacteria") +  # Add the title here
+  theme_minimal() +
+  theme(axis.text.y.left = element_text(size = 20),
+        axis.text.x = element_text(size = 20, angle = 90, vjust = 0.5, hjust = 1),
+        axis.title.y = element_text(size = 20),
+        plot.title = element_text(size = 25, hjust = 0.5, margin = margin(b = 20))) +  # Position the title at the top and in the middle
+  facet_grid(PlantType ~ SampleType) 
+
+print(proteobacteria_avgabundance)
+
+#proportion of the community "Verrucomicrobiota"
+Verrucomicrobiota <- subset(phylumabundance, Phylum =="Verrucomicrobiota")
+Verrucomicrobiota_avgabundance <- ggplot(Verrucomicrobiota) +
+  geom_col(mapping = aes(x = Treatment, y = Abundance, fill = Genus), position = "fill", show.legend = TRUE) +
+  ylab("Proportion of Community") +
+  scale_fill_manual(values = genus_colors) +
+  xlab(NULL) +
+  ggtitle("Verrucomicrobiota") +  # Add the title here
+  theme_minimal() +
+  theme(axis.text.y.left = element_text(size = 20),
+        axis.text.x = element_text(size = 20, angle = 90, vjust = 0.5, hjust = 1),
+        axis.title.y = element_text(size = 20),
+        plot.title = element_text(size = 25, hjust = 0.5, margin = margin(b = 20))) +  # Position the title at the top and in the middle
+  facet_grid(PlantType ~ SampleType) 
+
+print(Verrucomicrobiota_avgabundance)
 
