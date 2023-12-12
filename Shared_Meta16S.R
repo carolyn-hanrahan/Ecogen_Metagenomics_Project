@@ -81,19 +81,24 @@ physeq0 <- phyloseq(OTU, TAX)
 physeq <- phyloseq(OTU, TAX, samples)
 physeq
 unique(taxmat$Phylum)
+
 #Rarefy_even_depth: Resample an OTU table such that all samples have the same
-ps.rarified = rarefy_even_depth(physeq, rngseed=1, 
-                                sample.size=0.5*min(sample_sums(physeq)), replace=F)
-ps.rarified
-#Normalize number of reads in each sample using median seq depth
-total = median(sample_sums(ps.rarified))
-standf = function(x, t=total) round(t * (x / sum(x)))
-ps.rarified = transform_sample_counts(ps.rarified, standf)
-#OTU's that represent at least 0.01 % of the reads in one sample
-ps.rarified <- filter_taxa(ps.rarified, function(x) sum(x > total*0.01) > 0, TRUE)
-ps.rarified
+physeq.prune = prune_taxa(taxa_sums(physeq) > 180, physeq)
+physeq.prune
+
+#Unique phyla
+unique(taxmat$Phylum)
+
+#Extract the distance matrix from the phyloseq object
+my_distance_matrix <- phyloseq::distance(physeq.prune, method = "bray")
+head(my_distance_matrix)
+
+#Assuming your sample data is called "sample_data"
+adonis_result <- adonis2(my_distance_matrix ~ samples$Treatment +samples$PlantType + samples$SampleType, data = as(samples, "data.frame"))
+adonis_result
+
 #Keep only specific phylum
-physeqtax <- subset_taxa(ps.rarified, Phylum %in% c("Acidobacteriota", "Actinobacteriota", "Bacteroidota", 
+physeqtax <- subset_taxa(physeq.prune, Phylum %in% c("Acidobacteriota", "Actinobacteriota", "Bacteroidota", 
                                                     "Chloroflexi", "Gemmatimonadota", "Planctomycetota", 
                                                     "Verrucomicrobiota", "Proteobacteria", "Nitrospirota", 
                                                     "Firmicutes", "Cynobacteria"))
@@ -267,8 +272,9 @@ dim(avg.abundance)
 
 ###Save phylum colors
 phylum_colors <- c(
-  "#5F7FC7", "orange","#DA5724", "#508578",
-  "#AD6F3B", "#673770", "#652926", "#C84248",  "#D1A33D"
+  "chocolate1", "cyan3",  "#5F7FC7", "orange","#DA5724", "#508578",
+  "#AD6F3B", "#673770", "#652926", "#C84248",  
+  "#D1A33D",  "aquamarine3"
 )
 
 # Create a factor for SampleType to control the display of x-axis labels
@@ -296,12 +302,23 @@ phylum_avgabundance_sampletype <- ggplot(avg.abundance, aes(x = Treatment, y = a
 
 phylum_avgabundance_sampletype
 
-genus_colors <- c(
-  "#5F7FC7", "orange","#DA5724", "#508578",
-  "#AD6F3B", "#673770", "#652926", "#C84248",  "#D1A33D", 
-  "darkolivegreen", "bisque", "cadetblue", "cyan1", "coral", 
-  "darkgoldenrod", "darkorange", "darkseagreen", "salmon3", "plum3", 
-  "indianred", "honeydew", "pink3", "mediumpurple1", "sienna1")
+family_colors <- c(
+  "darkolivegreen", "chocolate1", "cyan3", "#652926", "gold2", "mediumaquamarine", 
+  "#5F7FC7", "orange", "pink3", 
+  "#DA5724", "cadetblue", "#508578",
+  "#AD6F3B", "#673770", "cadetblue1", "#C84248",  "#D1A33D", 
+  "darkolivegreen3", "bisque4", "cyan1", "coral", 
+  "darkgoldenrod", "darkorange", "darkseagreen",  "darkslategray3","salmon3",  
+  "indianred", "darkseagreen1","sienna1", 
+  "chocolate3","aquamarine3", 
+  "deepskyblue3", "darkorchid4", "darkseagreen1", "lightsalmon3", 
+  "mistyrose3", "tan1", "yellow3",
+  "powderblue", "plum4", "peachpuff3", "darkcyan",
+  "antiquewhite4", "darkgoldenrod1", "gold4","plum3",
+  "darksalmon", "aquamarine","burlywood4", "cornflowerblue",
+  "burlywood1", "goldenrod4", "antiquewhite3", "chocolate4", "mediumpurple1")
+
+
 #Calcultae proportion of each phyla
 phylumabundance <- as.data.frame(phylumabundance)
 phylumabundance$SampleType <- factor(phylumabundance$SampleType, levels = unique(phylumabundance$SampleType))
