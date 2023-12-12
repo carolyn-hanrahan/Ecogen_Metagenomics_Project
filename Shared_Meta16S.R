@@ -1,7 +1,5 @@
 setwd("/Users/maryamnouri-aiin/Desktop/CompostMetagenomics/16S/")
 
-library(ANCOMBC)
-library(fastANCOM)
 require(readxl)
 library(openxlsx)
 library(tidyverse)
@@ -27,9 +25,7 @@ library("DESeq2")
 library(adaptiveGPCA)
 library(phyloseqGraphTest)
 library(igraph)
-library(ggnetwork)
-library("tximeta")
-library("tximportData")
+
 
 ####################################Rarefaction and normalisation####################################
 #Rawdata
